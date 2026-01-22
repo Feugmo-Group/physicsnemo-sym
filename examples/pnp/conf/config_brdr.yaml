@@ -10,7 +10,7 @@ arch:
   fully_connected:
     layer_size: 512
     nr_layers: 6
-    activation_fn: stan
+    activation_fn: tanh
     adaptive_activations: false
 scheduler:
   decay_rate: 0.9

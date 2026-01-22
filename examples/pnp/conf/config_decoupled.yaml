@@ -10,7 +10,7 @@ arch:
   fully_connected:
     layer_size: 256
     nr_layers: 6
-    activation_fn: silu
+    activation_fn: tanh
 scheduler:
   decay_rate: 0.9
   decay_steps: 4000

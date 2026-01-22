@@ -12,7 +12,7 @@ arch:
     nr_layers: 6
     rank: 32
     subnet_arch_type: fully_connected
-    activation_fn: stan
+    activation_fn: tanh
     adaptive_activations: false
 scheduler:
   decay_rate: 0.9

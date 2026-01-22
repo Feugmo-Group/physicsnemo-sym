@@ -12,7 +12,7 @@ arch:
     nr_layers: 6
     nr_levels: 4
     subnet_arch_type: fourier
-    activation_fn: stan
+    activation_fn: tanh
     adaptive_activations: false
     subnet_kwargs:
       frequencies: ["axis", [0.2, 0.4, 1, 1.4, 2.6]]

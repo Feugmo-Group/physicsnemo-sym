@@ -1,0 +1,50 @@
+defaults:
+  - physicsnemo_default
+  - arch:
+      - fully_connected
+  - scheduler: tf_exponential_lr
+  - optimizer: adam
+  - loss: sum
+  - _self_
+arch:
+  fully_connected:
+    layer_size: 512
+    nr_layers: 6
+    activation_fn: stan
+    adaptive_activations: false
+scheduler:
+  decay_rate: 0.95
+  decay_steps: 4000
+optimizer:
+  lr: 1.0e-3
+
+training:
+  rec_validation_freq: 1000
+  rec_inference_freq: 2000
+  rec_monitor_freq: 1000
+  rec_constraint_freq: 2000
+  max_steps : 40000
+  print_stats_freq: 100
+  ntk:
+    use_ntk: false
+    save_name: null
+    run_freq: 10
+
+batch_size:
+  Initial: 2000
+  Left: 2000
+  Right: 2000
+  Interior: 6000
+
+hydra:
+  job:
+    chdir: true
+
+cuda_graphs: true
+
+graph:
+  func_arch: true
+  func_arch_allow_partial_hessian: true
+
+custom:
+  grid_sampling: false

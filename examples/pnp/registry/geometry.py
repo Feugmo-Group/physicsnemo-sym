@@ -1,3 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import sympy
 from sympy import Symbol, Abs, sqrt, Max, Min
 import numpy as np
@@ -8,8 +25,15 @@ from chaospy.distributions.sampler.sequences.van_der_corput import (
 
 from physicsnemo.sym.geometry.geometry import Geometry, csg_curve_naming
 from physicsnemo.sym.geometry.curve import SympyCurve
-from physicsnemo.sym.geometry.parameterization import Parameterization, Bounds, Parameter
-from physicsnemo.sym.geometry.helper import _sympy_sdf_to_sdf, _sympy_criteria_to_criteria
+from physicsnemo.sym.geometry.parameterization import (
+    Parameterization,
+    Bounds,
+    Parameter,
+)
+from physicsnemo.sym.geometry.helper import (
+    _sympy_sdf_to_sdf,
+    _sympy_criteria_to_criteria,
+)
 
 
 class GridRectangle(Geometry):
@@ -17,11 +41,11 @@ class GridRectangle(Geometry):
 
     def __init__(self, point_1, point_2, parameterization=Parameterization()):
         # make sympy symbols
-        l = Symbol(csg_curve_naming(0))
+        ls = Symbol(csg_curve_naming(0))
         x, y = Symbol("x"), Symbol("y")
 
         # curves for each side
-        curve_parameterization = Parameterization({l: (0, 1)})
+        curve_parameterization = Parameterization({ls: (0, 1)})
         curve_parameterization = Parameterization.combine(
             curve_parameterization, parameterization
         )
@@ -30,7 +54,7 @@ class GridRectangle(Geometry):
 
         line_1 = SympyCurve(
             functions={
-                "x": l * dist_x + point_1[0],
+                "x": ls * dist_x + point_1[0],
                 "y": point_1[1],
                 "normal_x": 0,
                 "normal_y": -1,
@@ -41,7 +65,7 @@ class GridRectangle(Geometry):
         line_2 = SympyCurve(
             functions={
                 "x": point_2[0],
-                "y": l * dist_y + point_1[1],
+                "y": ls * dist_y + point_1[1],
                 "normal_x": 1,
                 "normal_y": 0,
             },
@@ -50,7 +74,7 @@ class GridRectangle(Geometry):
         )
         line_3 = SympyCurve(
             functions={
-                "x": l * dist_x + point_1[0],
+                "x": ls * dist_x + point_1[0],
                 "y": point_2[1],
                 "normal_x": 0,
                 "normal_y": 1,
@@ -61,7 +85,7 @@ class GridRectangle(Geometry):
         line_4 = SympyCurve(
             functions={
                 "x": point_1[0],
-                "y": -l * dist_y + point_2[1],
+                "y": -ls * dist_y + point_2[1],
                 "normal_x": -1,
                 "normal_y": 0,
             },
@@ -152,13 +176,10 @@ class GridRectangle(Geometry):
             y_grid = np.linspace(y_bounds[0], y_bounds[1], ny)
 
         # create meshgrid
-        X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+        X, Y = np.meshgrid(x_grid, y_grid, indexing="ij")
 
         # flatten
-        local_invar = {
-            'x': X.flatten().reshape(-1, 1),
-            'y': Y.flatten().reshape(-1, 1)
-        }
+        local_invar = {"x": X.flatten().reshape(-1, 1), "y": Y.flatten().reshape(-1, 1)}
 
         # sample parameters
         total_grid_points = nx * ny
@@ -197,8 +218,7 @@ class GridRectangle(Geometry):
 
         if actual_points > 0:
             local_invar["area"] = np.full_like(
-                next(iter(local_invar.values())),
-                volume / actual_points
+                next(iter(local_invar.values())), volume / actual_points
             )
         else:
             raise RuntimeError("Could not sample interior. Check non-zero volume")
@@ -249,7 +269,7 @@ class GridRectangle(Geometry):
         total_assigned = sum(points_per_edge)
         if total_assigned < nr_points:
             longest_idx = np.argmax(edge_lengths)
-            points_per_edge[longest_idx] += (nr_points - total_assigned)
+            points_per_edge[longest_idx] += nr_points - total_assigned
 
         # sample each edge
         list_invar = []
@@ -266,7 +286,11 @@ class GridRectangle(Geometry):
 
                 # get edge parameterization
                 edge_param = Parameterization(
-                    {self.curves[edge_idx].parameterization.parameters[0]: t_values.reshape(-1, 1)}
+                    {
+                        self.curves[edge_idx].parameterization.parameters[
+                            0
+                        ]: t_values.reshape(-1, 1)
+                    }
                 )
                 combined_param = parameterization.union(edge_param)
 
@@ -300,10 +324,14 @@ class GridRectangle(Geometry):
             key: np.concatenate([d[key] for d in list_invar], axis=0)
             for key in list_invar[0].keys()
         }
-        params = {
-            key: np.concatenate([d[key] for d in list_params], axis=0)
-            for key in list_params[0].keys()
-        } if len(list_params[0]) > 0 else {}
+        params = (
+            {
+                key: np.concatenate([d[key] for d in list_params], axis=0)
+                for key in list_params[0].keys()
+            }
+            if len(list_params[0]) > 0
+            else {}
+        )
 
         invar.update(params)
         return invar

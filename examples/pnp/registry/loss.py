@@ -1,3 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import torch
 from dataclasses import dataclass
 from typing import Dict
@@ -17,7 +34,9 @@ class BalancedResidualDecayRate(Aggregator):
     Physics, 542, 114226. doi:10.1016/j.jcp.2025.114226
     """
 
-    def __init__(self, params, num_losses, weights=None, beta_c=0.999, beta_w=0.999, eps=1.0e-14):
+    def __init__(
+        self, params, num_losses, weights=None, beta_c=0.999, beta_w=0.999, eps=1.0e-14
+    ):
         super().__init__(params, num_losses, weights)
         self.beta_c: float = beta_c
         self.beta_w: float = beta_w
@@ -62,21 +81,24 @@ class BalancedResidualDecayRate(Aggregator):
 
         # compute balanced residual decay rates
         with torch.no_grad():
-            residual_4th = residuals_squared ** 2
+            residual_4th = residuals_squared**2
             self.residual_4th_ema = (
-                    self.beta_c * self.residual_4th_ema
-                    + (1 - self.beta_c) * residual_4th
+                self.beta_c * self.residual_4th_ema + (1 - self.beta_c) * residual_4th
             )
 
             # bias correction
-            residual_4th_ema = self.residual_4th_ema / (1 - self.beta_c ** n)
+            residual_4th_ema = self.residual_4th_ema / (1 - self.beta_c**n)
 
             # compute weights
             irdr = residuals_squared / (torch.sqrt(residual_4th_ema) + self.eps)
             weights = irdr / (irdr.mean() + self.eps)
-            self.weights_ema = self.beta_w * self.weights_ema + (1 - self.beta_w) * weights
+            self.weights_ema = (
+                self.beta_w * self.weights_ema + (1 - self.beta_w) * weights
+            )
             self.weights_ema = torch.clamp(self.weights_ema, min=self.eps)
-            self.weights_ema = self.weights_ema * self.num_losses / (self.weights_ema.sum() + self.eps)
+            self.weights_ema = (
+                self.weights_ema * self.num_losses / (self.weights_ema.sum() + self.eps)
+            )
 
         # compute total loss
         loss = (self.weights_ema.detach() * losses_stacked).sum()
@@ -94,8 +116,4 @@ class BalancedResidualDecayRateConf(LossConf):
 def register_custom_loss_configs():
     cs = ConfigStore.instance()
 
-    cs.store(
-        group="loss",
-        name="brdr",
-        node=BalancedResidualDecayRateConf
-    )
+    cs.store(group="loss", name="brdr", node=BalancedResidualDecayRateConf)

@@ -1,4 +1,22 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 from dataclasses import dataclass, field
+
 from physicsnemo.sym.models.utils import register_arch, PhysicsNeMoModels
 from typing import List, Dict, Tuple, Optional, Any
 import torch
@@ -64,24 +82,24 @@ class FiniteBasisNetArch(Arch):
     """
 
     def __init__(
-            self,
-            input_keys: List[Key],
-            output_keys: List[Key],
-            detach_keys: List[Key] = [],
-            layer_size: int = 512,
-            nr_layers: int = 6,
-            nr_levels: int = 4,
-            refinement_factor: int = 2,
-            reduction_factor: int = 1,
-            overlap_ratio: float = 2.7,
-            window_fn: str = 'cosine',
-            subnet_arch_type: str = 'fully_connected',
-            subnet_kwargs: dict = {},
-            domain_bounds: Optional[List[Any]] = None,
-            activation_fn: Activation = Activation.SILU,
-            skip_connections: bool = False,
-            weight_norm: bool = True,
-            adaptive_activations: bool = False,
+        self,
+        input_keys: List[Key],
+        output_keys: List[Key],
+        detach_keys: List[Key] = [],
+        layer_size: int = 512,
+        nr_layers: int = 6,
+        nr_levels: int = 4,
+        refinement_factor: int = 2,
+        reduction_factor: int = 1,
+        overlap_ratio: float = 2.7,
+        window_fn: str = "cosine",
+        subnet_arch_type: str = "fully_connected",
+        subnet_kwargs: dict = {},
+        domain_bounds: Optional[List[Any]] = None,
+        activation_fn: Activation = Activation.SILU,
+        skip_connections: bool = False,
+        weight_norm: bool = True,
+        adaptive_activations: bool = False,
     ):
         super().__init__(
             input_keys=input_keys,
@@ -105,11 +123,7 @@ class FiniteBasisNetArch(Arch):
                     f"FiniteBasisNetArch expects {self.input_dim} domain bounds, "
                     f"got {len(domain_bounds)}"
                 )
-            try:
-                domain_bounds = tuple(tuple(float(v) for v in b) for b in domain_bounds)
-            except:
-                raise ValueError("FiniteBasisNetArch could not convert domain_bounds "
-                                 "to Tuple[Tuple[float, float], ...]")
+            domain_bounds = tuple(tuple(float(v) for v in b) for b in domain_bounds)
             self.domain_bounds = domain_bounds
 
         # decompose domain for each level
@@ -117,7 +131,9 @@ class FiniteBasisNetArch(Arch):
         self.subdomain_shapes = []
 
         for level_idx in range(nr_levels):
-            subdomain_shape = torch.tensor([refinement_factor ** level_idx for _ in range(self.input_dim)])
+            subdomain_shape = torch.tensor(
+                [refinement_factor**level_idx for _ in range(self.input_dim)]
+            )
             self.subdomain_shapes.append(subdomain_shape)
 
             nr_subdomains = torch.prod(subdomain_shape).item()
@@ -138,10 +154,7 @@ class FiniteBasisNetArch(Arch):
         for level_idx in range(nr_levels):
             level_networks = nn.ModuleList()
             nr_subdomains = self.subdomains_per_level[level_idx]
-            subnet_layer_size = max(
-                1,
-                int(layer_size / (reduction_factor ** level_idx))
-            )
+            subnet_layer_size = max(1, int(layer_size / (reduction_factor**level_idx)))
             for subdomain_idx in range(nr_subdomains):
                 subnet = subnet_arch(
                     input_keys=input_keys,
@@ -153,7 +166,7 @@ class FiniteBasisNetArch(Arch):
                     skip_connections=skip_connections,
                     weight_norm=weight_norm,
                     adaptive_activations=adaptive_activations,
-                    **subnet_kwargs
+                    **subnet_kwargs,
                 )
                 level_networks.append(subnet)
             self.subnetworks.append(level_networks)
@@ -220,25 +233,24 @@ class FiniteBasisNetArch(Arch):
             w = width[dim_idx]
             window_1d = None
 
-            if self.window_fn == 'cosine' or self.window_fn is None:
+            if self.window_fn == "cosine" or self.window_fn is None:
                 normalized = (x_coord - c) / (w * 0.5)
                 window_1d = ((1 + torch.cos(torch.pi * normalized)) * 0.5) ** 2
-                mask = (
-                        (x_coord >= (c - w * 0.5)) & (x_coord <= (c + w * 0.5))
-                ).float()
+                mask = ((x_coord >= (c - w * 0.5)) & (x_coord <= (c + w * 0.5))).float()
                 window_1d = mask * window_1d
 
-            elif self.window_fn == 'sigmoid':
+            elif self.window_fn == "sigmoid":
                 sd = (w * 0.5) / 8
-                window_1d = (torch.sigmoid((x_coord - (c - w * 0.5)) / sd) *
-                             torch.sigmoid(((c + w * 0.5) - x_coord) / sd))
+                window_1d = torch.sigmoid(
+                    (x_coord - (c - w * 0.5)) / sd
+                ) * torch.sigmoid(((c + w * 0.5) - x_coord) / sd)
 
-            elif self.window_fn == 'bump':
+            elif self.window_fn == "bump":
                 r_sq = ((x_coord - c) / (w * 0.5)) ** 2
                 window_1d = torch.where(
                     r_sq < 1,
                     torch.exp(3 / (r_sq - 1.001)) / 4.9787e-2,
-                    torch.zeros_like(r_sq)
+                    torch.zeros_like(r_sq),
                 )
 
             window = window * window_1d
@@ -311,11 +323,11 @@ class FiniteBasisNetConf(ModelConf):
     refinement_factor: int = 2
     reduction_factor: int = 1
     overlap_ratio: float = 2.7
-    window_fn: str = 'cosine'
-    subnet_arch_type: str = 'fully_connected'
+    window_fn: str = "cosine"
+    subnet_arch_type: str = "fully_connected"
     subnet_kwargs: dict = field(default_factory=dict)
     domain_bounds: Optional[List[Any]] = None
-    activation_fn: str = 'silu'
+    activation_fn: str = "silu"
     skip_connections: bool = False
     weight_norm: bool = True
     adaptive_activations: bool = False
@@ -351,14 +363,14 @@ class KANLayer(nn.Module):
     """
 
     def __init__(
-            self,
-            in_features: int,
-            out_features: int,
-            grid_size: int = 100,
-            spline_order: int = 3,
-            base_activation_fn: Optional[nn.Module] = None,
-            grid_range: Tuple[float, float] = (-1, 1),
-            free_knot: bool = False,
+        self,
+        in_features: int,
+        out_features: int,
+        grid_size: int = 100,
+        spline_order: int = 3,
+        base_activation_fn: Optional[nn.Module] = None,
+        grid_range: Tuple[float, float] = (-1, 1),
+        free_knot: bool = False,
     ):
         super().__init__()
         self.in_features = in_features
@@ -375,24 +387,28 @@ class KANLayer(nn.Module):
             self.base_activation_fn = base_activation_fn
 
         # learnable parameters
-        self.base_weight = nn.Parameter(
-            torch.empty(out_features, in_features)
-        )
+        self.base_weight = nn.Parameter(torch.empty(out_features, in_features))
         self.spline_weight = nn.Parameter(
             torch.empty(out_features, in_features, grid_size + spline_order)
         )
 
         # initialize grid
         if free_knot:
-            self.knot_gaps = nn.Parameter(torch.zeros(in_features, grid_size + 2 * spline_order))
+            self.knot_gaps = nn.Parameter(
+                torch.zeros(in_features, grid_size + 2 * spline_order)
+            )
             self.register_buffer("_grid_range", torch.tensor(grid_range))
         else:
             h = (grid_range[1] - grid_range[0]) / grid_size
-            grid_uniform = torch.linspace(
-                grid_range[0] - h * spline_order,
-                grid_range[1] + h * spline_order,
-                grid_size + 2 * spline_order + 1,
-            ).expand(in_features, -1).contiguous()
+            grid_uniform = (
+                torch.linspace(
+                    grid_range[0] - h * spline_order,
+                    grid_range[1] + h * spline_order,
+                    grid_size + 2 * spline_order + 1,
+                )
+                .expand(in_features, -1)
+                .contiguous()
+            )
             self.register_buffer("_grid_uniform", grid_uniform, persistent=False)
 
         # initialize weights
@@ -417,14 +433,18 @@ class KANLayer(nn.Module):
             total_width = self._grid_range[1] - self._grid_range[0]
             h_avg = total_width / self.grid_size
             total_padded_width = total_width + (2 * self.spline_order * h_avg)
-            normalized_gaps = gaps * (total_padded_width / gaps.sum(dim=-1, keepdim=True))
+            normalized_gaps = gaps * (
+                total_padded_width / gaps.sum(dim=-1, keepdim=True)
+            )
 
             # build grid via cumulative sum
             start_point = self._grid_range[0] - (self.spline_order * h_avg)
             grid = torch.cumsum(normalized_gaps, dim=-1)
 
             # prepend zero and offset to start_point
-            zeros = torch.zeros(self.in_features, 1, device=grid.device, dtype=grid.dtype)
+            zeros = torch.zeros(
+                self.in_features, 1, device=grid.device, dtype=grid.dtype
+            )
             grid = torch.cat([zeros, grid], dim=-1) + start_point
 
             return grid
@@ -434,8 +454,8 @@ class KANLayer(nn.Module):
 
     def reset_parameters(self):
         """Initialize weights using Kaiming uniform distribution"""
-        nn.init.kaiming_uniform_(self.base_weight, nonlinearity='linear')
-        nn.init.kaiming_uniform_(self.spline_weight, nonlinearity='linear')
+        nn.init.kaiming_uniform_(self.base_weight, nonlinearity="linear")
+        nn.init.kaiming_uniform_(self.spline_weight, nonlinearity="linear")
 
     def b_splines(self, x: Tensor) -> Tensor:
         """
@@ -445,20 +465,21 @@ class KANLayer(nn.Module):
         x_unsqueezed = x.unsqueeze(-1)
 
         # compute initial basis
-        bases = ((x_unsqueezed >= self.grid[..., :-1]) &
-                 (x_unsqueezed < self.grid[..., 1:])).to(x.dtype)
+        bases = (
+            (x_unsqueezed >= self.grid[..., :-1]) & (x_unsqueezed < self.grid[..., 1:])
+        ).to(x.dtype)
 
         # recursively compute higher order B-splines
         for k in range(1, self.spline_order + 1):
-            left_intervals = self.grid[..., :-(k + 1)]
+            left_intervals = self.grid[..., : -(k + 1)]
             right_intervals = self.grid[..., k:-1]
-            next_intervals = self.grid[..., k + 1:]
+            next_intervals = self.grid[..., k + 1 :]
             shifted_intervals = self.grid[..., 1:-k]
 
             delta_left = torch.where(
                 right_intervals == left_intervals,
                 torch.ones_like(right_intervals),
-                right_intervals - left_intervals
+                right_intervals - left_intervals,
             )
 
             delta_right = next_intervals - shifted_intervals
@@ -516,16 +537,16 @@ class KolmogorovArnoldNetCore(nn.Module):
     """
 
     def __init__(
-            self,
-            in_features: int,
-            out_features: int,
-            layer_size: int = 5,
-            nr_layers: int = 2,
-            grid_size: int = 10,
-            spline_order: int = 3,
-            base_activation_fn: Activation = Activation.SILU,
-            grid_range: Tuple[float, float] = (-1, 1),
-            free_knot: bool = False,
+        self,
+        in_features: int,
+        out_features: int,
+        layer_size: int = 5,
+        nr_layers: int = 2,
+        grid_size: int = 10,
+        spline_order: int = 3,
+        base_activation_fn: Activation = Activation.SILU,
+        grid_range: Tuple[float, float] = (-1, 1),
+        free_knot: bool = False,
     ):
         super().__init__()
 
@@ -605,18 +626,18 @@ class KolmogorovArnoldNetArch(Arch):
     """
 
     def __init__(
-            self,
-            input_keys: List[Key],
-            output_keys: List[Key],
-            detach_keys: List[Key] = [],
-            layer_size: int = 5,
-            nr_layers: int = 2,
-            grid_size: int = 100,
-            spline_order: int = 3,
-            base_activation_fn=Activation.SILU,
-            grid_range: Tuple[float, float] = (-1, 1),
-            domain_bounds: Optional[List[Any]] = None,
-            free_knot: bool = False,
+        self,
+        input_keys: List[Key],
+        output_keys: List[Key],
+        detach_keys: List[Key] = [],
+        layer_size: int = 5,
+        nr_layers: int = 2,
+        grid_size: int = 100,
+        spline_order: int = 3,
+        base_activation_fn=Activation.SILU,
+        grid_range: Tuple[float, float] = (-1, 1),
+        domain_bounds: Optional[List[Any]] = None,
+        free_knot: bool = False,
     ):
         super().__init__(
             input_keys=input_keys,
@@ -649,8 +670,8 @@ class KolmogorovArnoldNetArch(Arch):
         else:
             domain_bounds = torch.tensor(domain_bounds)
 
-        self.register_buffer('input_min', domain_bounds[:, 0])
-        self.register_buffer('input_max', domain_bounds[:, 1])
+        self.register_buffer("input_min", domain_bounds[:, 0])
+        self.register_buffer("input_max", domain_bounds[:, 1])
 
         # create core network
         self._impl = KolmogorovArnoldNetCore(
@@ -690,7 +711,7 @@ class KolmogorovArnoldNetConf(ModelConf):
     nr_layers: int = 2
     grid_size: int = 100
     spline_order: int = 3
-    base_activation_fn: str = 'silu'
+    base_activation_fn: str = "silu"
     grid_range: Tuple = (-1, 1)
     domain_bounds: Optional[List[Any]] = None
     free_knot: bool = False
@@ -736,19 +757,19 @@ class SeparableNetArch(Arch):
     """
 
     def __init__(
-            self,
-            input_keys: List[Key],
-            output_keys: List[Key],
-            detach_keys: List[Key] = [],
-            layer_size: int = 512,
-            nr_layers: int = 6,
-            rank: int = 64,
-            subnet_arch_type: str = 'fully_connected',
-            subnet_kwargs: dict = {},
-            activation_fn: Activation = Activation.SILU,
-            skip_connections: bool = False,
-            weight_norm: bool = True,
-            adaptive_activations: bool = False,
+        self,
+        input_keys: List[Key],
+        output_keys: List[Key],
+        detach_keys: List[Key] = [],
+        layer_size: int = 512,
+        nr_layers: int = 6,
+        rank: int = 64,
+        subnet_arch_type: str = "fully_connected",
+        subnet_kwargs: dict = {},
+        activation_fn: Activation = Activation.SILU,
+        skip_connections: bool = False,
+        weight_norm: bool = True,
+        adaptive_activations: bool = False,
     ):
         super().__init__(
             input_keys=input_keys,
@@ -788,8 +809,7 @@ class SeparableNetArch(Arch):
         self.subnetworks = nn.ModuleList()
         for i, input_key in enumerate(input_keys):
             sub_output_keys = [
-                Key(f"{input_key.name}_feature_{j}", size=1)
-                for j in range(rank)
+                Key(f"{input_key.name}_feature_{j}", size=1) for j in range(rank)
             ]
             subnet = subnet_arch(
                 input_keys=[input_key],
@@ -801,7 +821,7 @@ class SeparableNetArch(Arch):
                 skip_connections=skip_connections,
                 weight_norm=weight_norm,
                 adaptive_activations=adaptive_activations,
-                **subnet_kwargs
+                **subnet_kwargs,
             )
             self.subnetworks.append(subnet)
 
@@ -812,7 +832,7 @@ class SeparableNetArch(Arch):
         # sum over products of features from each dimension
         output = self.subnetworks[0]._tensor_forward(x[..., 0:1])
         for i in range(1, self.input_dim):
-            output = output * self.subnetworks[i]._tensor_forward(x[..., i:i + 1])
+            output = output * self.subnetworks[i]._tensor_forward(x[..., i : i + 1])
 
         # sum across rank dimension for scalar output
         # or use learned weights for multi-output
@@ -839,7 +859,7 @@ class SeparableNetConf(ModelConf):
     layer_size: int = 512
     nr_layers: int = 6
     rank: int = 64
-    subnet_arch_type: str = 'fully_connected'
+    subnet_arch_type: str = "fully_connected"
     subnet_kwargs: dict = field(default_factory=dict)
     skip_connections: bool = False
     activation_fn: str = "silu"

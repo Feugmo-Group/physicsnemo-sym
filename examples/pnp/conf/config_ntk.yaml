@@ -17,23 +17,19 @@
 defaults:
   - physicsnemo_default
   - arch:
-      - kan
+      - full_connected
   - scheduler: tf_exponential_lr
   - optimizer: adam
   - loss: sum
   - _self_
 arch:
-  kan:
-    layer_size: 20
-    nr_layers: 3
-    grid_size: 10
-    spline_order: 3
-    base_activation_fn: tanh
-    grid_range: [-1, 1]
-    domain_bounds: [[0.0, 1.0], [0.0, 2.56]]
-    free_knot: true
+  fully_connected:
+    layer_size: 512
+    nr_layers: 6
+    activation_fn: tanh
+    adaptive_activations: false
 scheduler:
-  decay_rate: 0.85
+  decay_rate: 0.9
   decay_steps: 4000
 optimizer:
   lr: 1.0e-3
@@ -51,7 +47,7 @@ training:
   grad_agg_freq: 1
   grad_clip_max_norm: 0.8
   ntk:
-    use_ntk: false
+    use_ntk: true
     save_name: null
     run_freq: 10
 

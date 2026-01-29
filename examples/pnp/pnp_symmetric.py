@@ -53,6 +53,7 @@ use("Agg")
 class PoissonNernstPlanck(PDE):
     """
     Dimensionless 1D Poisson-Nernst-Planck (PNP) system for two ionic species
+    using the symmetric / antisymmetric transformation
     Reference:
     Subramaniam, A., Chen, J., Jang, T., Geise, N. R., Kasse, R. M.,
     Toney, M. F., & Subramanian, V. R. (2019). Analysis and Simulation
@@ -73,9 +74,9 @@ class PoissonNernstPlanck(PDE):
     ========
     >>> pnp = PoissonNernstPlanck(eps=0.1, xi=0.1)
     >>> pnp.pprint()
-    poisson: -cn + cp + 0.01*phi__x__x
-    continuity_p: -cp*phi__x__x - cp__x*phi__x - cp__x__x + cp__y
-    continuity_n: 0.1*cn*phi__x__x + 0.1*cn__x*phi__x - 0.1*cn__x__x + cn__y
+    poisson: 2*rho + 0.01*phi__x__x
+    continuity_symmetric: -0.45*c*phi__x__x - 0.55*rho*phi__x__x - 0.45*c__x*phi__x - 0.55*c__x__x + c__y - 0.55*phi__x*rho__x - 0.45*rho__x__x
+    continuity_antisymmetric: -0.55*c*phi__x__x - 0.45*rho*phi__x__x - 0.55*c__x*phi__x - 0.45*c__x__x - 0.45*phi__x*rho__x - 0.55*rho__x__x + rho__y
     """
 
     name = "PoissonNernstPlanck"
@@ -88,29 +89,39 @@ class PoissonNernstPlanck(PDE):
         # make input variables
         input_variables = {"x": x, "y": y}
 
-        # make cp, cn, and phi functions
-        cp = Function("cp")(*input_variables)
-        cn = Function("cn")(*input_variables)
+        # make c, rho, and phi functions
+        c = Function("c")(*input_variables)
+        rho = Function("rho")(*input_variables)
         phi = Function("phi")(*input_variables)
 
         # nondimensional constants
         eps = Number(eps)
-        xi = Number(xi)
+        alpha = Number(0.5 * (1 + xi))
+        beta = Number(0.5 * (1 - xi))
 
         # set equations
         self.equations = {}
-        self.equations["poisson"] = eps**2 * phi.diff(x, 2) + (cp - cn)
-        self.equations["continuity_p"] = cp.diff(y, 1) - (
-            cp.diff(x, 2) + cp * phi.diff(x, 2) + cp.diff(x, 1) * phi.diff(x, 1)
+        self.equations["poisson"] = eps**2 * phi.diff(x, 2) + 2 * rho
+        self.equations["continuity_symmetric"] = (
+            c.diff(y, 1)
+            - alpha
+            * (c.diff(x, 2) + rho * phi.diff(x, 2) + rho.diff(x, 1) * phi.diff(x, 1))
+            - beta
+            * (rho.diff(x, 2) + c * phi.diff(x, 2) + c.diff(x, 1) * phi.diff(x, 1))
         )
-        self.equations["continuity_n"] = cn.diff(y, 1) - xi * (
-            cn.diff(x, 2) - cn * phi.diff(x, 2) - cn.diff(x, 1) * phi.diff(x, 1)
+        self.equations["continuity_antisymmetric"] = (
+            rho.diff(y, 1)
+            - alpha
+            * (rho.diff(x, 2) + c * phi.diff(x, 2) + c.diff(x, 1) * phi.diff(x, 1))
+            - beta
+            * (c.diff(x, 2) + rho * phi.diff(x, 2) + rho.diff(x, 1) * phi.diff(x, 1))
         )
 
 
 class BoundaryConditions(PDE):
     """
     Boundary conditions for lithium symmetric cell 1D PNP system
+    using the symmetric / antisymmetric transformation
     Reference:
     Subramaniam, A., Chen, J., Jang, T., Geise, N. R., Kasse, R. M.,
     Toney, M. F., & Subramanian, V. R. (2019). Analysis and Simulation
@@ -129,12 +140,14 @@ class BoundaryConditions(PDE):
     ========
     >>> bc = BoundaryConditions(delta=0.1)
     >>> bc.pprint()
-    neumann_phi_left: phi__x
-    flux_cp_left: -cp*phi__x - cp__x - 0.1
-    flux_cn_left: cn*phi__x - cn__x
+    neumann_phi_left: phi__xs
+    flux_symmetric_left: -c*phi__x - rho*phi__x - c__x - rho__x - 0.1
+    flux_antisymmetric_left: c*phi__x - rho*phi__x - c__x + rho__x
     dirichlet_phi_right: phi
-    flux_cp_right: -cp*phi__x - cp__x - 0.1
-    flux_cn_right: cn*phi__x - cn__x
+    flux_symmetric_right: -c*phi__x - rho*phi__x - c__x - rho__x - 0.1
+    flux_antisymmetric_right: c*phi__x - rho*phi__x - c__x + rho__x
+    symmetric_initial: c + rho - 1
+    antisymmetric_initial: c - rho - 1
     """
 
     name = "BoundaryConditions"
@@ -148,8 +161,8 @@ class BoundaryConditions(PDE):
         input_variables = {"x": x, "y": y}
 
         # make cp, cn, and phi functions
-        cp = Function("cp")(*input_variables)
-        cn = Function("cn")(*input_variables)
+        c = Function("c")(*input_variables)
+        rho = Function("rho")(*input_variables)
         phi = Function("phi")(*input_variables)
 
         # nondimensional constants
@@ -159,18 +172,39 @@ class BoundaryConditions(PDE):
 
         # left boundary (x=0)
         self.equations["neumann_phi_left"] = phi.diff(x, 1)
-        self.equations["flux_cp_left"] = -cp.diff(x, 1) - cp * phi.diff(x, 1) - delta
-        self.equations["flux_cn_left"] = -cn.diff(x, 1) + cn * phi.diff(x, 1)
+        self.equations["flux_symmetric_left"] = (
+            -c.diff(x, 1)
+            - rho.diff(x, 1)
+            - c * phi.diff(x, 1)
+            - rho * phi.diff(x, 1)
+            - delta
+        )
+        self.equations["flux_antisymmetric_left"] = (
+            -c.diff(x, 1) + rho.diff(x, 1) + c * phi.diff(x, 1) - rho * phi.diff(x, 1)
+        )
 
         # right boundary (x=1)
         self.equations["dirichlet_phi_right"] = phi
-        self.equations["flux_cp_right"] = -cp.diff(x, 1) - cp * phi.diff(x, 1) - delta
-        self.equations["flux_cn_right"] = -cn.diff(x, 1) + cn * phi.diff(x, 1)
+        self.equations["flux_symmetric_right"] = (
+            -c.diff(x, 1)
+            - rho.diff(x, 1)
+            - c * phi.diff(x, 1)
+            - rho * phi.diff(x, 1)
+            - delta
+        )
+        self.equations["flux_antisymmetric_right"] = (
+            -c.diff(x, 1) + rho.diff(x, 1) + c * phi.diff(x, 1) - rho * phi.diff(x, 1)
+        )
+
+        # initial conditions
+        self.equations["symmetric_initial"] = c + rho - 1
+        self.equations["antisymmetric_initial"] = c - rho - 1
 
 
 class PNPValidatorPlotter(ValidatorPlotter):
     """
     Plotter class for validating PNP space-time solutions and spatial profiles
+    using the symmetric / antisymmetric transformation
 
     Parameters
     ==========
@@ -218,13 +252,27 @@ class PNPValidatorPlotter(ValidatorPlotter):
         x_raw = invar["x"]
         y_raw = invar["y"]
 
-        cp_pred_raw = pred_outvar["cp"]
-        cn_pred_raw = pred_outvar["cn"]
+        # get predictions
+        c_pred_raw = pred_outvar["c"]
+        rho_pred_raw = pred_outvar["rho"]
         phi_pred_raw = pred_outvar["phi"]
 
-        cp_true_raw = true_outvar["cp"]
-        cn_true_raw = true_outvar["cn"]
+        # compute predicted concentrations
+        pred_outvar["cp"] = c_pred_raw + rho_pred_raw
+        pred_outvar["cn"] = c_pred_raw - rho_pred_raw
+        cp_pred_raw = pred_outvar["cp"]
+        cn_pred_raw = pred_outvar["cn"]
+
+        # get true values
+        c_true_raw = true_outvar["c"]
+        rho_true_raw = true_outvar["rho"]
         phi_true_raw = true_outvar["phi"]
+
+        # compute true concentrations
+        true_outvar["cp"] = c_true_raw + rho_true_raw
+        true_outvar["cn"] = c_true_raw - rho_true_raw
+        cp_true_raw = c_true_raw + rho_true_raw
+        cn_true_raw = c_true_raw - rho_true_raw
 
         # group plots by time
         for i, t in enumerate(self.times):
@@ -365,7 +413,7 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     arch_cfg = cfg.arch[next(iter(cfg.arch))]
     net = instantiate_arch(
         input_keys=[Key("x"), Key("y")],
-        output_keys=[Key("cp"), Key("cn"), Key("phi")],
+        output_keys=[Key("c"), Key("rho"), Key("phi")],
         cfg=arch_cfg,
     )
     nodes = pnp.make_nodes() + bc.make_nodes() + [net.make_node(name="net")]
@@ -389,7 +437,7 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     initial = PointwiseBoundaryConstraint(
         nodes=nodes,
         geometry=rec,
-        outvar={"cp": 1.0, "cn": 1.0, "phi": 0.0},
+        outvar={"symmetric_initial": 0.0, "antisymmetric_initial": 0.0, "phi": 0.0},
         batch_size=cfg.batch_size.Initial,
         criteria=Eq(y, 0.0),
         quasirandom=quasirandom,
@@ -400,7 +448,11 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     left = PointwiseBoundaryConstraint(
         nodes=nodes,
         geometry=rec,
-        outvar={"flux_cn_left": 0.0, "flux_cp_left": 0.0, "neumann_phi_left": 0.0},
+        outvar={
+            "flux_symmetric_left": 0.0,
+            "flux_antisymmetric_left": 0.0,
+            "neumann_phi_left": 0.0,
+        },
         batch_size=cfg.batch_size.Left,
         criteria=Eq(x, 0.0),
         quasirandom=quasirandom,
@@ -411,7 +463,11 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     right = PointwiseBoundaryConstraint(
         nodes=nodes,
         geometry=rec,
-        outvar={"flux_cn_right": 0.0, "flux_cp_right": 0.0, "dirichlet_phi_right": 0.0},
+        outvar={
+            "flux_symmetric_right": 0.0,
+            "flux_antisymmetric_right": 0.0,
+            "dirichlet_phi_right": 0.0,
+        },
         batch_size=cfg.batch_size.Right,
         criteria=Eq(x, 1.0),
         quasirandom=quasirandom,
@@ -423,13 +479,17 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     if cfg.custom.sdf:
         lambda_weighting = {
             "poisson": Symbol("sdf"),
-            "continuity_p": Symbol("sdf"),
-            "continuity_n": Symbol("sdf"),
+            "continuity_symmetric": Symbol("sdf"),
+            "continuity_antisymmetric": Symbol("sdf"),
         }
     interior = PointwiseInteriorConstraint(
         nodes=nodes,
         geometry=rec,
-        outvar={"poisson": 0.0, "continuity_p": 0.0, "continuity_n": 0.0},
+        outvar={
+            "poisson": 0.0,
+            "continuity_symmetric": 0.0,
+            "continuity_antisymmetric": 0.0,
+        },
         batch_size=cfg.batch_size.Interior,
         lambda_weighting=lambda_weighting,
         quasirandom=quasirandom,
@@ -445,7 +505,10 @@ def run(cfg: PhysicsNeMoConfig) -> None:
             key: value for key, value in fvm_var.items() if key in ["x", "y"]
         }
         fvm_outvar_numpy = {
-            key: value for key, value in fvm_var.items() if key in ["cp", "cn", "phi"]
+            "c": 0.5 * (fvm_var["cp"] + fvm_var["cn"]),  # symmetric transformation
+            "rho": 0.5
+            * (fvm_var["cp"] - fvm_var["cn"]),  # antisymmetric transformation
+            "phi": fvm_var["phi"],
         }
         fvm_validator = PointwiseValidator(
             nodes=nodes,

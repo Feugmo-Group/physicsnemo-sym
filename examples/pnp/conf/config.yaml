@@ -26,31 +26,36 @@ arch:
   fully_connected:
     layer_size: 512
     nr_layers: 6
-    activation_fn: tanh
+    activation_fn: silu
     adaptive_activations: false
 scheduler:
-  decay_rate: 0.95
+  decay_rate: 0.92
   decay_steps: 4000
 optimizer:
   lr: 1.0e-3
 
 training:
-  rec_validation_freq: 1000
-  rec_inference_freq: 2000
-  rec_monitor_freq: 1000
-  rec_constraint_freq: 2000
-  max_steps : 60000
-  print_stats_freq: 100
+  max_steps: 100000
+  grad_agg_freq: 1
+  grad_clip_max_norm: 0.5
   ntk:
     use_ntk: false
     save_name: null
     run_freq: 10
+  rec_results_freq: 2000
+  rec_validation_freq: 1000
+  rec_inference_freq: 2000
+  rec_monitor_freq: 1000
+  rec_constraint_freq: 2000
+  save_network_freq: 1000
+  summary_freq: 1000
+  print_stats_freq: 100
 
 batch_size:
-  Initial: 2000
-  Left: 2000
-  Right: 2000
-  Interior: 6000
+  Initial: 5000
+  Left: 5000
+  Right: 5000
+  Interior: 100000
 
 hydra:
   job:

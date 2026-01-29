@@ -17,10 +17,10 @@
 defaults:
   - physicsnemo_default
   - arch:
-      - full_connected
+      - fully_connected
   - scheduler: tf_exponential_lr
-  - optimizer: adam
-  - loss: brdr
+  - optimizer: adahessian
+  - loss: sum
   - _self_
 arch:
   fully_connected:
@@ -31,8 +31,6 @@ arch:
 scheduler:
   decay_rate: 0.92
   decay_steps: 4000
-optimizer:
-  lr: 1.0e-3
 
 training:
   max_steps: 100000

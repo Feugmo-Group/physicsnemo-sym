@@ -17,13 +17,13 @@
 defaults:
   - physicsnemo_default
   - arch:
-      - full_connected
+      - fourier
   - scheduler: tf_exponential_lr
   - optimizer: adam
-  - loss: brdr
+  - loss: sum
   - _self_
 arch:
-  fully_connected:
+  fourier:
     layer_size: 512
     nr_layers: 6
     activation_fn: silu

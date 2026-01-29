@@ -363,12 +363,36 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     pnp = PoissonNernstPlanck(eps=p.eps, xi=p.xi)
     bc = BoundaryConditions(delta=p.delta)
     arch_cfg = cfg.arch[next(iter(cfg.arch))]
-    net = instantiate_arch(
+
+    # make neural nets for each field
+    # cation concentration
+    cp_net = instantiate_arch(
         input_keys=[Key("x"), Key("y")],
-        output_keys=[Key("cp"), Key("cn"), Key("phi")],
+        output_keys=[Key("cp")],
         cfg=arch_cfg,
     )
-    nodes = pnp.make_nodes() + bc.make_nodes() + [net.make_node(name="net")]
+
+    # anion concentration
+    cn_net = instantiate_arch(
+        input_keys=[Key("x"), Key("y")],
+        output_keys=[Key("cn")],
+        cfg=arch_cfg,
+    )
+
+    # electric potential
+    phi_net = instantiate_arch(
+        input_keys=[Key("x"), Key("y")],
+        output_keys=[Key("phi")],
+        cfg=arch_cfg,
+    )
+
+    nodes = (
+        pnp.make_nodes()
+        + bc.make_nodes()
+        + [cp_net.make_node(name="cp_net")]
+        + [cn_net.make_node(name="cn_net")]
+        + [phi_net.make_node(name="phi_net")]
+    )
 
     # add constraints to solver
     # make geometry

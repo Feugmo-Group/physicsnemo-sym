@@ -19,7 +19,6 @@ from typing import List, Optional, Union
 
 import numpy as np
 from numba import njit
-from typing import List, Optional, Union
 import torch
 from physicsnemo.sym.eq.derivatives import gradient_autodiff
 from physicsnemo.sym.eq.fd import grads as fd_grads

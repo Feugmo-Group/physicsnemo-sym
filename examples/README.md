@@ -32,6 +32,12 @@ such models can help solve real world problems.
 | --- | --- | --- | --- |
 |[Waveguide](./waveguide/)| Fourier Feature MLP PINN |Intermediate|Steady state, Multi-GPU|
 
+## Electrochemistry
+
+| Use case                           |Model|Level| Attributes      |
+|------------------------------------| --- | --- |-----------------|
+| [1D Poisson-Nernst-Planck](./pnp/) | Fully Connected MLP PINN |Intermediate| Transient state |
+
 ## Solid Mechanics
 
 |Use case|Model|Level|Attributes|

@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import torch
-from typing import List
 
 Tensor = torch.Tensor
 
@@ -166,8 +165,9 @@ class FirstDeriv(torch.nn.Module):
         """
         Compute derivatives using batched connectivity format.
         """
-        num_nodes = coords.shape[0]
-        max_neighbors = neighbor_matrix.shape[1]
+        # assignment to unused variables
+        #   num_nodes = coords.shape[0]
+        #   max_neighbors = neighbor_matrix.shape[1]
 
         # Create mask for valid neighbors
         valid_mask = neighbor_matrix != -1  # [N, max_neighbors]

@@ -67,6 +67,5 @@ graph:
   func_arch_allow_partial_hessian: true
 
 custom:
-  grid_sampling: false
-  sdf: false
+  sdf: true
   quasirandom: true

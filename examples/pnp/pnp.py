@@ -14,21 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import os
 import warnings
+from dataclasses import dataclass
 import numpy as np
 from sympy import Symbol, Function, Number, Eq
 from matplotlib import colormaps, use
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from typing import Tuple
-from registry import (
-    register_custom_arch_configs,
-    register_custom_loss_configs,
-    Parameters,
-    GridRectangle,
-)
 
 import physicsnemo.sym
 from physicsnemo.sym.hydra import to_absolute_path, instantiate_arch, PhysicsNeMoConfig
@@ -48,6 +42,50 @@ from physicsnemo.sym.utils.io import (
 )
 
 use("Agg")
+
+
+@dataclass
+class Parameters:
+    """Simulation parameters"""
+
+    # physical parameters
+    c0: float = 500.0  # [mol/m^3] initial electrolyte concentration
+    Dp: float = 4.0e-10  # [m^2/s] diffusivity of Li^+
+    Dn: float = 4.0e-9  # [m^2/s] diffusivity of PF_6^-
+    I_app: float = 10.0  # [A^2/m] applied current density
+    L: float = 7.5e-4  # [m] cell dimension in x
+    T: float = 298.15  # [K] temperature
+    eps0: float = 8.85e-12  # [kg^-1 m^-3 s^4 A^2] vacuum permittivity
+    epss: float = 16.8  # [-] dielectric constant of solvent
+    R: float = 8.314  # [J K^-1 mol^-1] gas constant
+    F: float = 96485.332  # [C/mol] Faraday constant
+    zp: int = 1  # [C] cation charge
+    zn: int = -1  # [C] anion charge
+    t_f: float = 3600  # [s] final time
+
+    # derived, dimensionless parameters
+    @property
+    def eps(self) -> float:
+        return np.sqrt(
+            self.R
+            * self.T
+            * self.epss
+            * self.eps0
+            / (self.zp**2 * self.F**2 * self.c0 * self.L**2)
+        )
+
+    @property
+    def xi(self) -> float:
+        return self.Dn / self.Dp
+
+    @property
+    def delta(self) -> float:
+        return self.I_app * self.L / (self.zp * self.F * self.c0 * self.Dp)
+
+    # characteristic time
+    @property
+    def t_c(self) -> float:
+        return self.L**2 / self.Dp
 
 
 class PoissonNernstPlanck(PDE):
@@ -197,24 +235,6 @@ class PNPValidatorPlotter(ValidatorPlotter):
 
         # create cache for interpolated true variables
         self.true_outvar = None
-
-    def _add_figures(self, group, name, results_dir, writer, step, *args):
-        """Try to make plots and write them to tensorboard summary"""
-
-        # catch exceptions on (possibly user-defined) __call__
-        try:
-            fs = self(*args)
-        except Exception as e:
-            print(f"error: {self}.__call__ raised an exception:", str(e))
-        else:
-            for f, tag in fs:
-                f.savefig(
-                    results_dir + name + "_" + tag + "_" + str(step) + "_epochs.png",
-                    bbox_inches="tight",
-                    pad_inches=0.1,
-                )
-                writer.add_figure(group + "/" + name + "/" + tag, f, step, close=True)
-            plt.close("all")
 
     def __call__(self, invar, true_outvar, pred_outvar):
         """
@@ -372,7 +392,7 @@ class PNPValidatorPlotter(ValidatorPlotter):
         return figures
 
 
-@physicsnemo.sym.main(config_path="conf", config_name="config_kan")
+@physicsnemo.sym.main(config_path="conf", config_name="config")
 def run(cfg: PhysicsNeMoConfig) -> None:
     # instantiate simulation parameters
     p = Parameters()
@@ -393,10 +413,7 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     x, y = Symbol("x"), Symbol("y")
     y_f = p.t_f / p.t_c  # final dimensionless time
 
-    if cfg.custom.grid_sampling:
-        rec = GridRectangle((0.0, 0.0), (1.0, y_f))
-    else:
-        rec = Rectangle((0.0, 0.0), (1.0, y_f))
+    rec = Rectangle((0.0, 0.0), (1.0, y_f))
 
     # make pnp domain
     pnp_domain = Domain()
@@ -486,7 +503,4 @@ def run(cfg: PhysicsNeMoConfig) -> None:
 
 
 if __name__ == "__main__":
-    register_custom_arch_configs()
-    register_custom_loss_configs()
-
     run()

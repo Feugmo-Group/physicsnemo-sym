@@ -360,8 +360,6 @@ class KANLayer(nn.Module):
         Range for grid initialization, by default (-1, 1)
     free_knot : bool, optional
         Apply learnable biases to grid for non-uniformity, by default False
-    skip_connections : bool, optional
-        Apply residual connection every layer using base_activation function, by default True
     """
 
     def __init__(
@@ -373,7 +371,6 @@ class KANLayer(nn.Module):
         base_activation_fn: Optional[nn.Module] = None,
         grid_range: Tuple[float, float] = (-1, 1),
         free_knot: bool = False,
-        skip_connections: bool = True,
     ):
         super().__init__()
         self.in_features = in_features
@@ -382,7 +379,6 @@ class KANLayer(nn.Module):
         self.spline_order = spline_order
         self.grid_range = grid_range
         self.free_knot = free_knot
-        self.skip_connections = skip_connections
 
         # base activation function for residual connection
         if base_activation_fn is None or isinstance(base_activation_fn, str):
@@ -500,12 +496,11 @@ class KANLayer(nn.Module):
         bases = self.b_splines(x)
 
         # apply spline weights
-        output = torch.einsum("...ib,oib->...o", bases, self.spline_weight)
+        spline_output = torch.einsum("...ib,oib->...o", bases, self.spline_weight)
 
         # residual connection
-        if self.skip_connections:
-            base_output = F.linear(self.base_activation_fn(x), self.base_weight)
-            output = output + base_output
+        base_output = F.linear(self.base_activation_fn(x), self.base_weight)
+        output = spline_output + base_output
 
         return output
 
@@ -541,11 +536,9 @@ class KolmogorovArnoldNetCore(nn.Module):
         Grid range for B-splines, by default (-1, 1)
     free_knot : bool, optional
         Apply learnable biases to grid for non-uniformity, by default False
-    outer_layer : nn.Module, optional
+    outer_layer_fn : nn.Module, optional
         Outer layer applied to spline output, by default None
-    skip_connections : bool, optional
-        Apply residual connection every layer using base_activation function, by default True
-    apply_outer : bool, optional
+    outer_layer : bool, optional
         Apply outer layer to spline output, by default True
     """
 
@@ -560,12 +553,11 @@ class KolmogorovArnoldNetCore(nn.Module):
         base_activation_fn: Activation = Activation.TANH,
         grid_range: Tuple[float, float] = (-1, 1),
         free_knot: bool = False,
-        outer_layer: Optional[nn.Module] = None,
-        skip_connections: bool = True,
-        apply_outer: bool = True,
+        outer_layer_fn: Optional[nn.Module] = None,
+        outer_layer: bool = True,
     ):
         super().__init__()
-        self.apply_outer = apply_outer
+        self.outer_layer = outer_layer
 
         # get activation function
         if isinstance(base_activation_fn, str):
@@ -577,10 +569,10 @@ class KolmogorovArnoldNetCore(nn.Module):
             activation_fn = base_activation_fn
 
         # get outer layer function
-        if outer_layer is None or isinstance(outer_layer, str):
-            self.outer_layer = nn.Tanh()
+        if outer_layer_fn is None or isinstance(outer_layer_fn, str):
+            self.outer_layer_fn = nn.Tanh()
         else:
-            self.outer_layer = outer_layer
+            self.outer_layer_fn = outer_layer_fn
 
         # build KAN layers
         self.layer_sizes = [in_features] + [layer_size] * nr_layers + [out_features]
@@ -595,7 +587,6 @@ class KolmogorovArnoldNetCore(nn.Module):
                     base_activation_fn=activation_fn,
                     grid_range=grid_range,
                     free_knot=free_knot,
-                    skip_connections=skip_connections,
                 )
             )
 
@@ -604,8 +595,8 @@ class KolmogorovArnoldNetCore(nn.Module):
             x = layer(x)
 
             # apply outer layer
-            if self.apply_outer:
-                x = self.outer_layer(x)
+            if self.outer_layer:
+                x = self.outer_layer_fn(x)
 
         # final layer without tanh; output can be arbitrary range
         x = self.layers[-1](x)
@@ -615,7 +606,7 @@ class KolmogorovArnoldNetCore(nn.Module):
 class KolmogorovArnoldNetArch(Arch):
     """
     Kolmogorov-Arnold Network architecture
-    Reference:
+    Reference:s
     Wang, Y., Sun, J., Bai, J., Anitescu, C., Eshaghi, M. S.,
     Zhuang, X., … Liu, Y. (2025). Kolmogorov–Arnold-Informed
     neural network: A physics-informed deep learning framework
@@ -648,11 +639,9 @@ class KolmogorovArnoldNetArch(Arch):
         assumes [-1, 1] if none, by default None.
     free_knot: bool, optional
         Apply learnable biases to grid for non-uniformity, by default False
-    outer_layer : Activation, optional
+    outer_layer_fn : Activation, optional
         Outer layer applied to spline output (set as None to deactivate), by default Activation.TANH
-    skip_connections : bool, optional
-        Apply residual connection every layer using base_activation function, by default True
-    apply_outer : bool, optional
+    outer_layer : bool, optional
         Apply outer layer to spline output, by default True
     """
 
@@ -669,9 +658,8 @@ class KolmogorovArnoldNetArch(Arch):
         grid_range: Tuple[float, float] = (-1, 1),
         domain_bounds: Optional[List[Any]] = None,
         free_knot: bool = False,
-        outer_layer: Activation = Activation.TANH,
-        skip_connections: bool = True,
-        apply_outer: bool = True,
+        outer_layer_fn: Activation = Activation.TANH,
+        outer_layer: bool = True,
     ):
         super().__init__(
             input_keys=input_keys,
@@ -692,16 +680,16 @@ class KolmogorovArnoldNetArch(Arch):
             self.base_activation_fn = base_activation_fn
 
         # handle outer layer
-        if isinstance(outer_layer, str):
-            outer_layer = Activation[outer_layer.upper()]
+        if isinstance(outer_layer_fn, str):
+            outer_layer_fn = Activation[outer_layer_fn.upper()]
 
         # get outer layer
-        if isinstance(outer_layer, str):
-            outer_layer = get_activation_fn(Activation[outer_layer.upper()])
-        elif isinstance(outer_layer, Activation):
-            outer_layer = get_activation_fn(outer_layer)
+        if isinstance(outer_layer_fn, str):
+            outer_layer_fn = get_activation_fn(Activation[outer_layer_fn.upper()])
+        elif isinstance(outer_layer_fn, Activation):
+            outer_layer_fn = get_activation_fn(outer_layer_fn)
 
-        self.outer_layer = outer_layer
+        self.outer_layer_fn = outer_layer_fn
 
         self.grid_range = grid_range
 
@@ -730,17 +718,19 @@ class KolmogorovArnoldNetArch(Arch):
             base_activation_fn=self.base_activation_fn,
             grid_range=grid_range,
             free_knot=free_knot,
-            outer_layer=self.outer_layer,
-            skip_connections=skip_connections,
-            apply_outer=apply_outer,
+            outer_layer_fn=self.outer_layer_fn,
+            outer_layer=outer_layer,
         )
 
     def _tensor_forward(self, x: Tensor) -> Tensor:
-        # normalize to [-1, 1]
+        # normalize input to [-1, 1]
         denom = self.input_max - self.input_min
         denom = torch.where(denom == 0, torch.ones_like(denom), denom)
         x_norm = ((x - self.input_min) / denom) * 2 - 1
-        return self._impl(x_norm)
+
+        # apply KAN core
+        output = self._impl(x_norm)
+        return output
 
     def forward(self, in_vars: Dict[str, Tensor]) -> Dict[str, Tensor]:
         x = self.concat_input(
@@ -764,9 +754,8 @@ class KolmogorovArnoldNetConf(ModelConf):
     grid_range: Tuple = (-1, 1)
     domain_bounds: Optional[List[Any]] = None
     free_knot: bool = False
-    outer_layer: str = "tanh"
-    skip_connections: bool = True
-    apply_outer: bool = True
+    outer_layer_fn: str = "tanh"
+    outer_layer: bool = True
 
 
 class SeparableNetArch(Arch):

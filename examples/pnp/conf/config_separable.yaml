@@ -24,7 +24,7 @@ defaults:
   - _self_
 arch:
   spinn:
-    layer_size: 512
+    layer_size: 256
     nr_layers: 6
     rank: 128
     subnet_arch_type: fully_connected
@@ -34,7 +34,7 @@ scheduler:
   decay_rate: 0.92
   decay_steps: 4000
 optimizer:
-  lr: 1.0e-3
+  lr: 3.0e-4
 
 training:
   max_steps: 100000
@@ -54,10 +54,10 @@ training:
   print_stats_freq: 100
 
 batch_size:
-  Initial: 5000
-  Left: 5000
-  Right: 5000
-  Interior: 100000
+  Initial: 1600
+  Left: 1600
+  Right: 1600
+  Interior: 64000
 
 hydra:
   job:

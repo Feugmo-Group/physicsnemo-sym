@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """
 FVM solution of PNP system modelling lithium symmetric cell
 Reference:
@@ -29,9 +28,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
-import matplotlib
-
-matplotlib.use("Agg")
 
 
 @dataclass

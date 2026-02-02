@@ -31,6 +31,8 @@ arch:
 scheduler:
   decay_rate: 0.92
   decay_steps: 4000
+optimizer:
+  lr: 1.0e-2
 
 training:
   max_steps: 100000
@@ -50,10 +52,10 @@ training:
   print_stats_freq: 100
 
 batch_size:
-  Initial: 5000
-  Left: 5000
-  Right: 5000
-  Interior: 100000
+  Initial: 1600
+  Left: 1600
+  Right: 1600
+  Interior: 64000
 
 hydra:
   job:
@@ -67,5 +69,5 @@ graph:
 
 custom:
   grid_sampling: false
-  sdf: true
+  sdf: false
   quasirandom: true

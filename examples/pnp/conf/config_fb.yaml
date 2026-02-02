@@ -62,10 +62,10 @@ training:
   print_stats_freq: 100
 
 batch_size:
-  Initial: 5000
-  Left: 5000
-  Right: 5000
-  Interior: 100000
+  Initial: 1600
+  Left: 1600
+  Right: 1600
+  Interior: 64000
 
 hydra:
   job:

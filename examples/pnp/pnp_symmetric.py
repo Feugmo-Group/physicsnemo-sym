@@ -232,6 +232,24 @@ class PNPValidatorPlotter(ValidatorPlotter):
         # create cache for interpolated true variables
         self.true_outvar = None
 
+    def _add_figures(self, group, name, results_dir, writer, step, *args):
+        """Try to make plots and write them to tensorboard summary"""
+
+        # catch exceptions on (possibly user-defined) __call__
+        try:
+            fs = self(*args)
+        except Exception as e:
+            print(f"error: {self}.__call__ raised an exception:", str(e))
+        else:
+            for f, tag in fs:
+                f.savefig(
+                    results_dir + name + "_" + tag + "_" + str(step) + "_epochs.png",
+                    bbox_inches="tight",
+                    pad_inches=0.1,
+                )
+                writer.add_figure(group + "/" + name + "/" + tag, f, step, close=True)
+            plt.close("all")
+
     def __call__(self, invar, true_outvar, pred_outvar):
         """
         Plot true and predicted space-time solutions, their difference,
@@ -402,7 +420,7 @@ class PNPValidatorPlotter(ValidatorPlotter):
         return figures
 
 
-@physicsnemo.sym.main(config_path="conf", config_name="config")
+@physicsnemo.sym.main(config_path="conf", config_name="config_brdr")
 def run(cfg: PhysicsNeMoConfig) -> None:
     # instantiate simulation parameters
     p = Parameters()

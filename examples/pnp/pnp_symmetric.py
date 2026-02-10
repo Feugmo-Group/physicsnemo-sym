@@ -88,7 +88,7 @@ class Parameters:
         return self.L**2 / self.Dp
 
 
-class PoissonNernstPlanck(PDE):
+class SymmetricPoissonNernstPlanck(PDE):
     """
     Dimensionless 1D Poisson-Nernst-Planck (PNP) system for two ionic species
     using the symmetric / antisymmetric transformation
@@ -109,15 +109,15 @@ class PoissonNernstPlanck(PDE):
         Dimensionless ratio of diffusion coefficients: D_p / D_n. Default is 1.
 
     Example
-    ========
-    >>> pnp = PoissonNernstPlanck(eps=0.1, xi=0.1)
+    =======
+    >>> pnp = SymmetricPoissonNernstPlanck(eps=0.1, xi=0.1)
     >>> pnp.pprint()
     poisson: 2*rho + 0.01*phi__x__x
     continuity_symmetric: -0.45*c*phi__x__x - 0.55*rho*phi__x__x - 0.45*c__x*phi__x - 0.55*c__x__x + c__y - 0.55*phi__x*rho__x - 0.45*rho__x__x
     continuity_antisymmetric: -0.55*c*phi__x__x - 0.45*rho*phi__x__x - 0.55*c__x*phi__x - 0.45*c__x__x - 0.45*phi__x*rho__x - 0.55*rho__x__x + rho__y
     """
 
-    name = "PoissonNernstPlanck"
+    name = "SymmetricPoissonNernstPlanck"
 
     def __init__(self, eps=1.0, xi=1.0):
         # coordinates
@@ -156,7 +156,7 @@ class PoissonNernstPlanck(PDE):
         )
 
 
-class BoundaryConditions(PDE):
+class SymmetricBoundaryConditions(PDE):
     """
     Boundary conditions for lithium symmetric cell 1D PNP system
     using the symmetric / antisymmetric transformation
@@ -175,8 +175,8 @@ class BoundaryConditions(PDE):
         Default is 1.
 
     Example
-    ========
-    >>> bc = BoundaryConditions(delta=0.1)
+    =======
+    >>> bc = SymmetricBoundaryConditions(delta=0.1)
     >>> bc.pprint()
     neumann_phi_left: phi__xs
     flux_symmetric_left: -c*phi__x - rho*phi__x - c__x - rho__x - 0.1
@@ -188,7 +188,7 @@ class BoundaryConditions(PDE):
     antisymmetric_initial: c - rho - 1
     """
 
-    name = "BoundaryConditions"
+    name = "SymmetricBoundaryConditions"
 
     def __init__(self, delta=1.0):
         # coordinates
@@ -446,8 +446,8 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     p = Parameters()
 
     # make a list of nodes for the graph to unroll on
-    pnp = PoissonNernstPlanck(eps=p.eps, xi=p.xi)
-    bc = BoundaryConditions(delta=p.delta)
+    pnp = SymmetricPoissonNernstPlanck(eps=p.eps, xi=p.xi)
+    bc = SymmetricBoundaryConditions(delta=p.delta)
     arch_cfg = cfg.arch[next(iter(cfg.arch))]
     net = instantiate_arch(
         input_keys=[Key("x"), Key("y")],

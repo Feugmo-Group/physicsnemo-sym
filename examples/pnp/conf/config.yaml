@@ -55,7 +55,7 @@ batch_size:
   Initial: 1600
   Left: 1600
   Right: 1600
-  Interior: 64000
+  Interior: 16000
 
 hydra:
   job:

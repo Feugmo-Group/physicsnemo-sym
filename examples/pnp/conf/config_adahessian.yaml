@@ -29,10 +29,8 @@ arch:
     activation_fn: silu
     adaptive_activations: false
 scheduler:
-  decay_rate: 0.92
+  decay_rate: 0.95
   decay_steps: 4000
-optimizer:
-  lr: 1.0e-2
 
 training:
   max_steps: 100000
@@ -52,10 +50,10 @@ training:
   print_stats_freq: 100
 
 batch_size:
-  Initial: 1600
-  Left: 1600
-  Right: 1600
-  Interior: 64000
+  Initial: 800
+  Left: 800
+  Right: 800
+  Interior: 8000
 
 hydra:
   job:

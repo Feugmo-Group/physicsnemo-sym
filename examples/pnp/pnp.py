@@ -49,38 +49,16 @@ class Parameters:
     """Simulation parameters"""
 
     # physical parameters
-    c0: float = 500.0  # [mol/m^3] initial electrolyte concentration
-    Dp: float = 4.0e-10  # [m^2/s] diffusivity of Li^+
-    Dn: float = 4.0e-9  # [m^2/s] diffusivity of PF_6^-
-    I_app: float = 10.0  # [A^2/m] applied current density
-    L: float = 7.5e-4  # [m] cell dimension in x
-    T: float = 298.15  # [K] temperature
-    eps0: float = 8.85e-12  # [kg^-1 m^-3 s^4 A^2] vacuum permittivity
-    epss: float = 16.8  # [-] dielectric constant of solvent
-    R: float = 8.314  # [J K^-1 mol^-1] gas constant
-    F: float = 96485.332  # [C/mol] Faraday constant
     zp: int = 1  # [C] cation charge
     zn: int = -1  # [C] anion charge
+    Dp: float = 4.0e-10  # [m^2/s] diffusivity of Li^+
+    Dn: float = 4.0e-9  # [m^2/s] diffusivity of PF_6^-
+    c0: float = 500.0  # [mol/m^3] initial electrolyte concentration
+    epss: float = 16.8  # [-] dielectric constant of solvent
+    L: float = 7.5e-4  # [m] cell dimension in x
+    T: float = 298.15  # [K] temperature
+    I_app: float = 10.0  # [A^2/m] applied current density
     t_f: float = 3600  # [s] final time
-
-    # derived, dimensionless parameters
-    @property
-    def eps(self) -> float:
-        return np.sqrt(
-            self.R
-            * self.T
-            * self.epss
-            * self.eps0
-            / (self.zp**2 * self.F**2 * self.c0 * self.L**2)
-        )
-
-    @property
-    def xi(self) -> float:
-        return self.Dn / self.Dp
-
-    @property
-    def delta(self) -> float:
-        return self.I_app * self.L / (self.zp * self.F * self.c0 * self.Dp)
 
     # characteristic time
     @property
@@ -100,15 +78,25 @@ class PoissonNernstPlanck(PDE):
 
     Parameters
     ==========
-    eps : float, optional
-        Dimensionless Poisson parameter. Defined as
-        sqrt(R * T * eps_s * eps_0 / (z_p ** 2 * F ** 2 * c_0 * L ** 2))
-        Default is 1.
-    xi : float, optional
-        Dimensionless ratio of diffusion coefficients: D_p / D_n. Default is 1.
+    zp : int, optional
+        Cation charge number. Default is 1
+    zn : int, optional
+        Anion charge number. Default is -1
+    Dp : float, optional
+        Cation diffusivity. Default is 4.0e-10
+    Dn : float, optional
+        Anion diffusivity. Default is 4.0e-9
+    c0 : float, optional
+        Initial electrolyte concentration. Default is 500.0
+    epss : float, optional
+        Dielectric constant of solvent. Default is 16.8
+    L : float, optional
+        Cell dimension in the x-axis. Default is 7.5e-4
+    T : float, optional
+        Temperature of the system. Default is 298.15
 
     Example
-    ========
+    =======
     >>> pnp = PoissonNernstPlanck(eps=0.1, xi=0.1)
     >>> pnp.pprint()
     poisson: -cn + cp + 0.01*phi__x__x
@@ -118,7 +106,17 @@ class PoissonNernstPlanck(PDE):
 
     name = "PoissonNernstPlanck"
 
-    def __init__(self, eps=1.0, xi=1.0):
+    def __init__(
+        self,
+        zp: int = 1,
+        zn: int = -1,
+        Dp: float = 4.0e-10,
+        Dn: float = 4.0e-9,
+        c0: float = 500.0,
+        epss: float = 16.8,
+        L: float = 7.5e-4,
+        T: float = 298.15,
+    ):
         # coordinates
         x = Symbol("x")
         y = Symbol("y")
@@ -131,18 +129,28 @@ class PoissonNernstPlanck(PDE):
         cn = Function("cn")(*input_variables)
         phi = Function("phi")(*input_variables)
 
-        # nondimensional constants
-        eps = Number(eps)
-        xi = Number(xi)
+        # define nondimensional constants
+        # universal constants
+        eps0: float = 8.85e-12  # [kg^-1 m^-3 s^4 A^2] vacuum permittivity
+        R: float = 8.314  # [J K^-1 mol^-1] gas constant
+        F: float = 96485.332  # [C/mol] Faraday constant
+        zp = Number(zp)
+        zn = Number(zn)
+        eps = Number(np.sqrt((R * T * epss * eps0) / (zp**2 * F**2 * c0 * L**2)))
+        xi = Number(Dn / Dp)
 
         # set equations
         self.equations = {}
         self.equations["poisson"] = eps**2 * phi.diff(x, 2) + (cp - cn)
         self.equations["continuity_p"] = cp.diff(y, 1) - (
-            cp.diff(x, 2) + cp * phi.diff(x, 2) + cp.diff(x, 1) * phi.diff(x, 1)
+            cp.diff(x, 2)
+            + zp * cp * phi.diff(x, 2)
+            + zp * cp.diff(x, 1) * phi.diff(x, 1)
         )
         self.equations["continuity_n"] = cn.diff(y, 1) - xi * (
-            cn.diff(x, 2) - cn * phi.diff(x, 2) - cn.diff(x, 1) * phi.diff(x, 1)
+            cn.diff(x, 2)
+            + zn * cn * phi.diff(x, 2)
+            + zn * cn.diff(x, 1) * phi.diff(x, 1)
         )
 
 
@@ -158,13 +166,19 @@ class BoundaryConditions(PDE):
 
     Parameters
     ==========
-    delta : float, optional
-        Dimensionless cation flux parameter. Defined as
-        I_app * L / (z_p * F * c_0 * D_p)
-        Default is 1.
+    zp : int, optional
+        Cation charge number. Default is 1
+    Dp : float, optional
+        Cation diffusivity. Default is 4.0e-10
+    c0 : float, optional
+        Initial electrolyte concentration. Default is 500.0
+    L : float, optional
+        Cell dimension in the x-axis. Default is 7.5e-4
+    I_app : float, optional
+        Applied current density
 
     Example
-    ========
+    =======
     >>> bc = BoundaryConditions(delta=0.1)
     >>> bc.pprint()
     neumann_phi_left: phi__x
@@ -177,7 +191,14 @@ class BoundaryConditions(PDE):
 
     name = "BoundaryConditions"
 
-    def __init__(self, delta=1.0):
+    def __init__(
+        self,
+        zp: int = 1,
+        Dp: float = 4.0e-10,
+        c0: float = 500.0,
+        L: float = 7.5e-4,
+        I_app: float = 10.0,
+    ):
         # coordinates
         x = Symbol("x")
         y = Symbol("y")
@@ -191,7 +212,8 @@ class BoundaryConditions(PDE):
         phi = Function("phi")(*input_variables)
 
         # nondimensional constants
-        delta = Number(delta)
+        F: float = 96485.332  # [C/mol] Faraday constant
+        delta = Number(I_app * L / (zp * F * c0 * Dp))
 
         self.equations = {}
 
@@ -398,8 +420,8 @@ def run(cfg: PhysicsNeMoConfig) -> None:
     p = Parameters()
 
     # make a list of nodes for the graph to unroll on
-    pnp = PoissonNernstPlanck(eps=p.eps, xi=p.xi)
-    bc = BoundaryConditions(delta=p.delta)
+    pnp = PoissonNernstPlanck()
+    bc = BoundaryConditions()
     arch_cfg = cfg.arch[next(iter(cfg.arch))]
     net = instantiate_arch(
         input_keys=[Key("x"), Key("y")],

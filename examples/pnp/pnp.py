@@ -168,6 +168,8 @@ class BoundaryConditions(PDE):
     ==========
     zp : int, optional
         Cation charge number. Default is 1
+    zn : int, optional
+        Anion charge number. Default is -1
     Dp : float, optional
         Cation diffusivity. Default is 4.0e-10
     c0 : float, optional
@@ -194,6 +196,7 @@ class BoundaryConditions(PDE):
     def __init__(
         self,
         zp: int = 1,
+        zn: int = -1,
         Dp: float = 4.0e-10,
         c0: float = 500.0,
         L: float = 7.5e-4,
@@ -213,19 +216,25 @@ class BoundaryConditions(PDE):
 
         # nondimensional constants
         F: float = 96485.332  # [C/mol] Faraday constant
+        zp = Number(zp)
+        zn = Number(zn)
         delta = Number(I_app * L / (zp * F * c0 * Dp))
 
         self.equations = {}
 
         # left boundary (x=0)
         self.equations["neumann_phi_left"] = phi.diff(x, 1)
-        self.equations["flux_cp_left"] = -cp.diff(x, 1) - cp * phi.diff(x, 1) - delta
-        self.equations["flux_cn_left"] = -cn.diff(x, 1) + cn * phi.diff(x, 1)
+        self.equations["flux_cp_left"] = (
+            -cp.diff(x, 1) - zp * cp * phi.diff(x, 1) - delta
+        )
+        self.equations["flux_cn_left"] = -cn.diff(x, 1) - zn * cn * phi.diff(x, 1)
 
         # right boundary (x=1)
         self.equations["dirichlet_phi_right"] = phi
-        self.equations["flux_cp_right"] = -cp.diff(x, 1) - cp * phi.diff(x, 1) - delta
-        self.equations["flux_cn_right"] = -cn.diff(x, 1) + cn * phi.diff(x, 1)
+        self.equations["flux_cp_right"] = (
+            -cp.diff(x, 1) - zn * cp * phi.diff(x, 1) - delta
+        )
+        self.equations["flux_cn_right"] = -cn.diff(x, 1) - zp * cn * phi.diff(x, 1)
 
 
 class PNPValidatorPlotter(ValidatorPlotter):
